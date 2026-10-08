@@ -18,6 +18,7 @@ from .service import Service
 from .store import identifier
 from .media import media_response, MediaError
 from .ai.gemini_embedding import GeminiEmbeddingAdapter
+from .ai.huggingface_embedding import HuggingFaceEmbeddingAdapter
 from .ai.openrouter_embedding import OpenRouterEmbeddingAdapter
 from .ai.gemini_verification import GeminiVerificationAdapter
 from .chat import ChatService, GeminiChatAdapter, OpenAICompatibleChatAdapter
@@ -25,14 +26,16 @@ from .chat import ChatService, GeminiChatAdapter, OpenAICompatibleChatAdapter
 
 def create_app(settings=None, embedding=None, verification=None, chat_adapter=None):
     settings = settings or Settings()
-    embedding_provider = os.getenv('EMBEDDING_PROVIDER', 'gemini').lower()
+    embedding_provider = os.getenv('EMBEDDING_PROVIDER', 'huggingface').lower()
     if embedding is None:
-        if embedding_provider == 'openrouter':
+        if embedding_provider == 'huggingface':
+            embedding = HuggingFaceEmbeddingAdapter()
+        elif embedding_provider == 'openrouter':
             embedding = OpenRouterEmbeddingAdapter()
         elif embedding_provider == 'gemini':
             embedding = GeminiEmbeddingAdapter(model=os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2"))
         else:
-            raise ValueError('EMBEDDING_PROVIDER must be gemini or openrouter')
+            raise ValueError('EMBEDDING_PROVIDER must be huggingface, gemini, or openrouter')
     verification = verification or GeminiVerificationAdapter()
     service = Service(settings, embedding, verification)
     if chat_adapter is None:

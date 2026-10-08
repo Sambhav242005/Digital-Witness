@@ -1,6 +1,10 @@
 # Current AI setup and verification status
 
-Current configuration selects OpenRouter image/text embeddings and Ollama OpenAI-compatible chat and frame vision. Google Gemini remains available through `EMBEDDING_PROVIDER=gemini` and `CHAT_PROVIDER=gemini`; Gemini visual checks still use the Google key. Keep every key on the backend; never return it in health, errors, fingerprints or fixtures. Provider changes create incompatible vector spaces and require full reindexing. OpenRouter's selected free embedding model may log prompts/outputs, so it must not receive sensitive footage.
+Current configuration selects Hugging Face's local EmbeddingGemma 2 safetensors model for image/text embeddings and Ollama Cloud Gemma 4 for chat/VLM. Google Gemini and OpenRouter remain optional embedding/chat providers; Gemini visual checks still use the Google key. Keep every key on the backend; never return it in health, errors, fingerprints or fixtures. Provider changes create incompatible vector spaces and require full reindexing. OpenRouter's selected free embedding model may log prompts/outputs, so it must not receive sensitive footage.
+
+## Ollama EmbeddingGemma 2
+
+`HuggingFaceEmbeddingAdapter` loads `google/embeddinggemma-2` directly through Sentence Transformers and Transformers, pinned to revision `914f7f89142e33e77833254d9c9b90c3cef7303b`. The model card documents unified 768-dimensional text/image/video/audio embeddings and multimodal interleaving. `HF_AUTO_DOWNLOAD_EMBEDDING=true` lets the library fetch missing checkpoint files into the Hugging Face cache during startup; false requires a complete local cache. Text uses the `SearchQuery` instruction. For an 8-second source window, FFmpeg samples up to eight chronological JPEG frames, and the adapter embeds them together as one text-plus-image input rather than averaging independent image vectors. Audio weights are omitted to reduce memory; CUDA is selected when available and CPU is the fallback. The API smoke-tests both text and image embedding before advertising semantic search. Chat/VLM uses `gemma4:31b-cloud` separately and sends selected frames to Ollama Cloud. Sources: [Hugging Face model card](https://huggingface.co/google/embeddinggemma-2) and [Transformers model documentation](https://huggingface.co/docs/transformers/model_doc/embedding_gemma2).
 
 ## OpenRouter image-and-text embeddings
 

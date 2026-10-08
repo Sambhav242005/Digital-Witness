@@ -2,6 +2,8 @@ from pathlib import Path
 from threading import Event, Thread
 import logging
 import math
+import errno
+import os
 import shutil
 
 from .config import Settings
@@ -33,10 +35,20 @@ class Service:
 
     def start(self):
         # A process lock prevents a second server from failing the first worker's jobs.
-        import fcntl
         self.lock = (self.settings.data_dir / "worker.lock").open("a")
         try:
-            fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if os.name == "nt":
+                import msvcrt
+                self.lock.seek(0)
+                try:
+                    msvcrt.locking(self.lock.fileno(), msvcrt.LK_NBLCK, 1)
+                except OSError as exc:
+                    if exc.errno in (errno.EACCES, errno.EDEADLK) or getattr(exc, "winerror", None) == 33:
+                        raise BlockingIOError(errno.EWOULDBLOCK, "Data directory is already locked") from exc
+                    raise
+            else:
+                import fcntl
+                fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             self.lock.close()
             raise RuntimeError("Run exactly one backend server per DATA_DIR") from None

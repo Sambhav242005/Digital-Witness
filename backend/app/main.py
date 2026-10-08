@@ -18,16 +18,31 @@ from .service import Service
 from .store import identifier
 from .media import media_response, MediaError
 from .ai.gemini_embedding import GeminiEmbeddingAdapter
+from .ai.openrouter_embedding import OpenRouterEmbeddingAdapter
 from .ai.gemini_verification import GeminiVerificationAdapter
-from .chat import ChatService, GeminiChatAdapter
+from .chat import ChatService, GeminiChatAdapter, OpenAICompatibleChatAdapter
 
 
 def create_app(settings=None, embedding=None, verification=None, chat_adapter=None):
     settings = settings or Settings()
-    embedding = embedding or GeminiEmbeddingAdapter(model=os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2"))
+    embedding_provider = os.getenv('EMBEDDING_PROVIDER', 'gemini').lower()
+    if embedding is None:
+        if embedding_provider == 'openrouter':
+            embedding = OpenRouterEmbeddingAdapter()
+        elif embedding_provider == 'gemini':
+            embedding = GeminiEmbeddingAdapter(model=os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2"))
+        else:
+            raise ValueError('EMBEDDING_PROVIDER must be gemini or openrouter')
     verification = verification or GeminiVerificationAdapter()
     service = Service(settings, embedding, verification)
-    chat_adapter = chat_adapter or GeminiChatAdapter()
+    if chat_adapter is None:
+        chat_provider = os.getenv('CHAT_PROVIDER', 'gemini').lower()
+        if chat_provider == 'gemini':
+            chat_adapter = GeminiChatAdapter()
+        elif chat_provider in ('openai_compatible', 'ollama'):
+            chat_adapter = OpenAICompatibleChatAdapter()
+        else:
+            raise ValueError('CHAT_PROVIDER must be gemini, ollama, or openai_compatible')
     service.chat = ChatService(service, chat_adapter)
 
     @asynccontextmanager
@@ -36,15 +51,26 @@ def create_app(settings=None, embedding=None, verification=None, chat_adapter=No
         async def load_models():
             if os.getenv("LOAD_MODELS", "false").lower() == "true":
                 for adapter in (embedding, chat_adapter, verification):
+                    if service.stop.is_set():
+                        return
                     try:
                         await asyncio.to_thread(adapter.load)
                     except Exception:
                         logging.getLogger(__name__).warning("Model adapter unavailable: %s", type(adapter).__name__)
+                while not service.stop.is_set():
+                    await asyncio.sleep(1)
+                    for adapter in (embedding, chat_adapter, verification):
+                        if getattr(adapter, "reload_due", False):
+                            try:
+                                await asyncio.to_thread(adapter.load)
+                            except Exception:
+                                logging.getLogger(__name__).warning("Model adapter reload unavailable: %s", type(adapter).__name__)
         task = asyncio.create_task(load_models())
         try:
             yield
         finally:
-            await task
+            service.stop.set()
+            await task  # Finish in-flight SDK load before closing its client.
             await asyncio.to_thread(service.close)
             for adapter in (embedding, chat_adapter, verification):
                 if hasattr(adapter, 'close'):
@@ -91,7 +117,7 @@ def create_app(settings=None, embedding=None, verification=None, chat_adapter=No
         return response
 
     def error_response(request, exc):
-        return JSONResponse({"error": exc.error, "request_id": getattr(request.state, "request_id", identifier("req"))}, status_code=exc.status, headers={"Retry-After": "2"} if exc.status == 429 else None)
+        return JSONResponse({"error": exc.error, "request_id": getattr(request.state, "request_id", identifier("req"))}, status_code=exc.status, headers={"Retry-After": str(exc.error["details"].get("retry_after_sec", 2))} if exc.status == 429 or exc.error["details"].get("retry_after_sec") else None)
 
     @app.exception_handler(ApiFailure)
     async def api_error(request, exc):

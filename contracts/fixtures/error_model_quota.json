@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "MODEL_UNAVAILABLE",
+    "message": "Google quota or rate limit reached. Check AI Studio quota and billing; retry after the cooldown.",
+    "details": {
+      "provider_status": 429,
+      "retry_after_sec": 60
+    }
+  },
+  "request_id": "req_fixture"
+}

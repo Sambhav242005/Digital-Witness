@@ -40,7 +40,7 @@ def sdk_client(monkeypatch, invalid_video=False, failure=False):
     def client(**kwargs):
         assert kwargs["api_key"] == "SECRET_KEY"
         assert kwargs["http_options"].timeout == 60000
-        assert kwargs["http_options"].retry_options.attempts == 2
+        assert kwargs["http_options"].retry_options.attempts == 1
         return SimpleNamespace(models=SimpleNamespace(embed_content=embed_content), close=lambda: closed.append(True))
     monkeypatch.setattr(genai, "Client", client)
     return calls, closed

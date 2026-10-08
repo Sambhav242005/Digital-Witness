@@ -1,4 +1,5 @@
-"""Model boundaries. Importing these modules never downloads weights."""
-
+"""Model boundaries, with sanitized failures."""
 class ModelUnavailable(RuntimeError):
-    """A real model cannot currently perform inference."""
+    def __init__(self, message, details=None):
+        super().__init__(message)
+        self.details = details or {}

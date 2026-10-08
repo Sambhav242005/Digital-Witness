@@ -58,7 +58,7 @@ export type SearchRequest = {
   query: string;
   video_ids: string[];
   limit?: number;
-  time_range?: { start_sec: number; end_sec: number };
+  time_range?: { start_sec: number; end_sec: number } | null;
   event_types?: EventType[];
 };
 
@@ -78,7 +78,7 @@ export type Health = {
   status: 'ok';
   contract_version: string;
   mode: 'live' | 'mock';
-  capabilities: { semantic_search: boolean; frame_verification: boolean; temporal_events: boolean };
+  capabilities: { semantic_search: boolean; frame_verification: boolean; temporal_events: boolean; chat: boolean };
   supported_event_types: EventType[];
 };
 
@@ -86,3 +86,7 @@ export type VideoPage = { items: Video[]; total: number; limit: number; offset: 
 export type AcceptedVideo = { video: Video; job: Job };
 export type AcceptedSearch = { search_id: string; job: Job };
 export type ZoneInput = { name: string; kind: 'entrance'; polygon: Point[] };
+
+export type ChatMessage = { message_id: string; role: 'user' | 'assistant'; text: string; created_at: string; search_ids: string[]; result_ids: string[] };
+export type Chat = { chat_id: string; video_ids: string[]; created_at: string; updated_at: string; status: 'idle' | 'running' | 'failed'; active_turn_id: string | null; context: SearchRequest | null; messages: ChatMessage[]; error: ApiErrorBody | null };
+export type AcceptedChatTurn = { chat_id: string; turn_id: string };

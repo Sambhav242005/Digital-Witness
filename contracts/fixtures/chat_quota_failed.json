@@ -1,0 +1,22 @@
+{
+  "data": {
+    "chat_id": "chat_fixture",
+    "video_ids": [
+      "vid_fixture"
+    ],
+    "created_at": "2026-10-08T04:30:00Z",
+    "updated_at": "2026-10-08T04:30:00Z",
+    "status": "failed",
+    "active_turn_id": null,
+    "context": null,
+    "messages": [],
+    "error": {
+      "code": "MODEL_UNAVAILABLE",
+      "message": "Google quota or rate limit reached. Check AI Studio quota and billing; retry after the cooldown.",
+      "details": {
+        "provider_status": 429,
+        "retry_after_sec": 60
+      }
+    }
+  }
+}

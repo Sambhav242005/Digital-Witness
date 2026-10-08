@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type PointerEvent } from 'react';
 import { ApiError } from '@/api/errors';
 import { api } from '@/api/client';
+import { ChatPanel } from './chat';
 import { parseRecordingTime, polygonError, validateVideoSelection, verificationLabel } from '@/api/validation';
 import type { EventType, Health, Job, Point, Search, SearchResult, Video, VideoStatus, ZoneInput } from '@/api/types';
 
@@ -377,7 +378,7 @@ export default function Workspace() {
     if ((startTime && start === null) || (endTime && end === null) || Number.isNaN(start) || Number.isNaN(end)) { setSearchError('Enter time in mm:ss format.'); return; }
     if ((start !== null || end !== null) && selectedVideoIds.length !== 1) { setSearchError('Time filters need exactly one selected recording.'); return; }
     const duration = readyVideos.find((video) => video.video_id === selectedVideoIds[0])?.duration_sec;
-    if (start !== null && end !== null && (start >= end || (duration !== null && end > duration))) { setSearchError('The time range must be positive and within the recording duration.'); return; }
+    if (start !== null && end !== null && (start >= end || (duration != null && end > duration))) { setSearchError('The time range must be positive and within the recording duration.'); return; }
     if ((start === null) !== (end === null)) { setSearchError('Enter both a start and end time.'); return; }
     if (eventTypes.some((kind) => !health?.supported_event_types.includes(kind))) { setSearchError('That event filter is not available from the backend.'); return; }
     const generation = ++searchGeneration.current;
@@ -478,6 +479,13 @@ export default function Workspace() {
             <div className="search-submit-row"><span className="helper-text">Top 10 candidates · original timestamps</span><button className="button button-primary" type="submit" disabled={searching || !readyVideos.length || !health?.capabilities.semantic_search}>{searching ? 'Searching…' : 'Search recordings'}<span aria-hidden="true">↗</span></button></div>
           </form>
         </section>
+
+        <ChatPanel videos={readyVideos.filter((video) => selectedVideoIds.includes(video.video_id))} available={Boolean(health?.capabilities.chat)} onReview={(retrieved, result) => {
+          searchGeneration.current++;
+          setSearching(false); setSearchJob(null); setSearchError(''); setSearch(retrieved); setSelectedResult(result);
+          window.sessionStorage.setItem('dw_active_search_id', retrieved.search_id);
+          document.getElementById('results-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }} />
 
         <section className="results-section" aria-labelledby="results-heading"><div className="results-title"><div><span className="eyebrow">REVIEW</span><h2 id="results-heading">Search results</h2></div>{search?.status === 'succeeded' && <span className="result-count">{search.results.length} {search.results.length === 1 ? 'candidate' : 'candidates'}</span>}</div>
           {searching && <div className="panel search-progress"><span className="spinner" /><div><strong>{searchJob?.stage === 'verifying' ? 'Checking evidence frames' : searchJob?.stage === 'retrieving' ? 'Retrieving candidate moments' : 'Search queued'}</strong><p>{searchError || (searchJob ? `${searchJob.progress_pct}% estimated progress` : 'Waiting for status from the backend.')}</p>{searchError && <button className="text-button" onClick={() => void reconnectSearch()}>Reconnect or try again</button>}</div>{searchJob && <Progress job={searchJob} />}</div>}

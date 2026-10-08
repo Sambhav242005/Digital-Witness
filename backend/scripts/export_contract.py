@@ -70,6 +70,9 @@ def export(app):
     for status in ['idle','running','failed']:
         save('chat_'+status,Data[Chat],{'data':dict(chat,status=status,active_turn_id='turn_fixture' if status=='running' else None,context=dict(query='person carrying a bag',video_ids=['vid_fixture'],limit=10,time_range=None,event_types=[]),messages=[dict(message_id='message_fixture',role='user',text='Show a person carrying a bag',created_at=STAMP,search_ids=[],result_ids=[])],error=dict(code='WORKER_INTERRUPTED',message='The turn was interrupted; submit another message.',details={}) if status=='failed' else None)})
     save('chat_turn_accepted',Data[ChatTurnAccepted],{'data':dict(chat_id='chat_fixture',turn_id='turn_fixture')})
+    quota = dict(code='MODEL_UNAVAILABLE',message='Google quota or rate limit reached. Check AI Studio quota and billing; retry after the cooldown.',details=dict(provider_status=429,retry_after_sec=60))
+    save('error_model_quota',ErrorEnvelope,dict(error=quota,request_id='req_fixture'))
+    save('chat_quota_failed',Data[Chat],{'data':dict(chat,status='failed',error=quota)})
     (fixtures/'README.md').write_text('These examples are illustrative contract fixtures, not measured model outputs. Run the fixture media seeding command documented in README before opening localhost media URLs. The ready fixture refers to vid_fixture; media IDs are media_fixture_video and media_fixture_thumb.\n')
 
 if __name__ == '__main__':

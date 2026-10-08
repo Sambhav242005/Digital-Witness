@@ -76,7 +76,10 @@ def test_chat_followup_preserves_query_and_applies_minutes_filter(chat_client,lo
     first = turn(chat_client,key,'Find someone carrying a bag near the entrance.')
     assert first['messages'][-1]['result_ids']
     assert first['messages'][-1]['search_ids']
-    assert 'not_checked' in first['messages'][-1]['text']
+    assert 'Not checked:' in first['messages'][-1]['text']
+    assert first['messages'][-1]['text'].count('Frame verification is unavailable.') == 1
+    assert 'result_' not in first['messages'][-1]['text']
+    assert 'person carrying a bag' in first['messages'][-1]['text']
     assert first['context']['query']=='person carrying a bag'
     second = turn(chat_client,key,'Only show matches after 2 minutes.')
     assert second['context']['query']==first['context']['query']
@@ -141,7 +144,7 @@ def test_chat_missing_resource_and_missing_model(chat_client,long_footage):
 
 def test_chat_sdk_types_and_smoke_gate(monkeypatch):
     tool=declarations()
-    assert {f.name for f in tool.function_declarations}=={'search_video','get_search_results','finish_response'}
+    assert {f.name for f in tool.function_declarations}=={'search_video','get_search_results','inspect_frames','finish_response'}
     fake=SimpleNamespace(models=SimpleNamespace(generate_content=lambda **kwargs:call('finish_response',{'reason':'needs_input','clarification':'query'})))
     adapter=GeminiChatAdapter(client=fake)
     assert not adapter.available

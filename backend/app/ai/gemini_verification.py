@@ -9,6 +9,7 @@ from PIL import Image
 from pydantic import BaseModel, ConfigDict
 
 from . import ModelUnavailable
+from .upstream import ProviderCooldown
 from .verification_adapter import CHECKS, image_quality
 
 MODEL_ID = "gemini-3.5-flash"
@@ -19,7 +20,7 @@ class VisualDecision(BaseModel):
     answer: Literal["yes", "no", "uncertain"]
 
 
-class GeminiVerificationAdapter:
+class GeminiVerificationAdapter(ProviderCooldown):
     def __init__(self, api_key=None, model=None, timeout_ms=60000):
         self._api_key = api_key if api_key is not None else os.getenv("GEMINI_API_KEY")
         self.revision = model or os.getenv("GEMINI_VERIFICATION_MODEL", MODEL_ID)
@@ -61,8 +62,8 @@ class GeminiVerificationAdapter:
             # Validate locally even when SDK/server schema validation is enabled.
             decision = VisualDecision.model_validate_json(result.text or "")
             return {"answer": decision.answer, "probability_yes": None}
-        except Exception:
-            raise ModelUnavailable("Gemini visual decision failed; check model access, quota, credentials, and network") from None
+        except Exception as exc:
+            raise self.provider_failure(exc, "Gemini visual decision") from None
 
     def load(self):
         with self._lock:
@@ -75,7 +76,7 @@ class GeminiVerificationAdapter:
                 from google.genai import types
                 self._client = genai.Client(
                     api_key=self._api_key,
-                    http_options=types.HttpOptions(timeout=self.timeout_ms, retry_options=types.HttpRetryOptions(attempts=2, initial_delay=1, max_delay=2)),
+                    http_options=types.HttpOptions(timeout=self.timeout_ms, retry_options=types.HttpRetryOptions(attempts=1, initial_delay=1, max_delay=2)),
                 )
                 image = Image.new("L", (128, 128))
                 image.putdata([255 if (x//8 + y//8) % 2 else 0 for y in range(128) for x in range(128)])
@@ -84,6 +85,13 @@ class GeminiVerificationAdapter:
                 self._request(buffer.getvalue(), CHECKS["bag_present"], "image/png")
                 self.available = True
                 self.error = None
+            except ModelUnavailable as exc:
+                if exc.details.get("retry_after_sec"):
+                    self._needs_reload = True
+                    raise
+                self.close()
+                self.error = str(exc)
+                raise
             except Exception:
                 self.close()
                 self.error = "Gemini visual decision smoke test failed; check credentials, model access, quota, and network"
@@ -104,7 +112,7 @@ class GeminiVerificationAdapter:
             raise ValueError("Unsupported visual question")
         with self._lock:
             if not self.available or self._client is None:
-                raise ModelUnavailable(self.error or "Gemini visual decision unavailable")
+                raise self.unavailable(self.error or "Gemini visual decision unavailable")
             if image_quality(image_path) != "usable":
                 return {"answer": "uncertain", "probability_yes": None}
             try:

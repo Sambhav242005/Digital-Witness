@@ -9,6 +9,8 @@ from .errors import ApiFailure
 from .store import Store, identifier, now, encode
 from . import media
 from .schemas import FrameCheck
+from .ai import ModelUnavailable
+from .ai.upstream import failure_details
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +94,19 @@ class Service:
             video = self.require(db, "video", video_id)
             if video["active_job_id"]:
                 raise ApiFailure(409, "JOB_ALREADY_RUNNING", "This recording already has an active job.")
-            if video["status"] != ("failed" if retry else "draft"):
-                raise ApiFailure(409, "INVALID_STATE", "Retry requires a failed recording; indexing requires a draft recording.")
+            if retry:
+                if video["status"] != "failed":
+                    raise ApiFailure(409, "INVALID_STATE", "Retry requires a failed recording.")
+            elif video["status"] == "ready":
+                current = getattr(self.embedding, "fingerprint", self.embedding.revision)
+                indexed = {row[0] for row in db.execute("SELECT DISTINCT revision FROM clips WHERE video_id=?", (video_id,))}
+                if indexed == {current}:
+                    raise ApiFailure(409, "INVALID_STATE", "This recording already uses the selected embedding model.")
+            elif video["status"] != "draft":
+                raise ApiFailure(409, "INVALID_STATE", "Indexing requires a draft recording; ready recordings can be reindexed when the embedding model changes.")
             kind = "prepare_video" if retry and not video["_prepared"] else "index_video"
             if kind == "index_video" and not self.embedding.available:
-                raise ApiFailure(503, "MODEL_UNAVAILABLE", "The embedding model is unavailable. Configure and load the real model.")
+                raise ApiFailure(503, "MODEL_UNAVAILABLE", "The embedding model is unavailable. Configure and load the real model.", failure_details(self.embedding))
             job = self.job(db, kind, video_id)
             video.update(status="preparing" if kind == "prepare_video" else "indexing", active_job_id=job["job_id"], error=None)
             self.store.put(db, "video", video_id, video)
@@ -124,7 +134,7 @@ class Service:
             if time_range and time_range["end_sec"] > videos[0]["duration_sec"]:
                 raise ApiFailure(422, "VALIDATION_ERROR", "Time range must fit the recording duration.")
             if not self.embedding.available or self.settings.relevance_threshold is None:
-                raise ApiFailure(503, "MODEL_UNAVAILABLE", "Search requires a loaded embedding model and a validation-derived RELEVANCE_THRESHOLD.")
+                raise ApiFailure(503, "MODEL_UNAVAILABLE", "Search requires a loaded embedding model and a validation-derived RELEVANCE_THRESHOLD.", failure_details(self.embedding))
             search_id = identifier("search")
             job = self.job(db, "search", search_id)
             search = dict(search_id=search_id, job_id=job["job_id"], status="queued", query=request["query"], video_ids=request["video_ids"], created_at=now(), warnings=[], results=[], error=None, _request=request)
@@ -136,6 +146,101 @@ class Service:
         key = identifier("media")
         db.execute("INSERT INTO media VALUES(?,?,?,?,?)", (key, str(path), content_type, video_id, attempt))
         return f"{self.settings.public_base_url}/api/v1/media/{key}"
+
+    def visual_evidence(self, result_id):
+        """Sample a retrieved interval for chat; the caller enforces chat ownership.
+
+        Returned paths are server-only. Publishing frames does not change the
+        separate, narrowly scoped bag verification decision.
+        """
+        with self.store.transaction() as db:
+            search = next((s for s in self.store.all(db, "search") if s["status"] == "succeeded" and any(r["result_id"] == result_id for r in s["results"])), None)
+        if search is None:
+            raise ApiFailure(404, "RESULT_NOT_FOUND", "The requested completed search result does not exist.")
+        groups = self.get_visual_evidence(search["search_id"], [result_id], max_frames=3)
+        return groups[0]["frames"]
+
+    def get_visual_evidence(self, search_id, result_ids=None, max_frames=6):
+        """Extract at most six ID-mapped frames and atomically publish evidence."""
+        from .ai.verification_adapter import image_quality
+        if not isinstance(max_frames, int) or isinstance(max_frames, bool) or not 1 <= max_frames <= 6:
+            raise ValueError("Frame budget must be between one and six")
+        with self.store.transaction() as db:
+            search = self.require(db, "search", search_id)
+            if search["status"] != "succeeded":
+                raise ApiFailure(409, "SEARCH_NOT_READY", "Wait for the search to finish before inspecting frames.")
+            ids = result_ids if result_ids is not None else [r["result_id"] for r in search["results"][:2]]
+            if len(ids) > 2 or len(ids) != len(set(ids)):
+                raise ApiFailure(422, "VALIDATION_ERROR", "Inspect at most two distinct retrieved results.")
+            by_id = {r["result_id"]: r for r in search["results"]}
+            if any(key not in by_id for key in ids):
+                raise ApiFailure(404, "RESULT_NOT_FOUND", "The requested result does not belong to this search.")
+            selected = [by_id[key] for key in ids]
+            videos = {r["video_id"]: self.require(db, "video", r["video_id"]) for r in selected}
+            mapped = {row["id"]: dict(row) for row in db.execute("SELECT * FROM media")}
+
+        root = self.settings.data_dir.resolve()
+        def resolve_url(url, video_id, content_type):
+            prefix = f"{self.settings.public_base_url}/api/v1/media/"
+            row = mapped.get(url[len(prefix):]) if isinstance(url, str) and url.startswith(prefix) else None
+            if row is None or row["video_id"] != video_id or row["content_type"] != content_type:
+                raise ApiFailure(404, "MEDIA_NOT_FOUND", "The requested evidence media is unavailable.")
+            path = Path(row["path"]).resolve()
+            if not path.is_relative_to(root) or not path.is_file():
+                raise ApiFailure(404, "MEDIA_NOT_FOUND", "The requested evidence media is unavailable.")
+            return path
+
+        attempt = identifier("visual")
+        directory = root / "attempts" / attempt
+        pending, groups, updates = [], [], {}
+        remaining = max_frames
+        try:
+            for result in selected:
+                budget = min(3, remaining)
+                if not budget:
+                    break
+                video = videos[result["video_id"]]
+                if video["status"] != "ready":
+                    raise ApiFailure(409, "VIDEO_NOT_READY", "The recording is not ready for frame inspection.")
+                source = resolve_url(result["playback_url"], result["video_id"], "video/mp4")
+                frames = []
+                existing = result.get("evidence", [])
+                if existing:
+                    for frame in existing[:budget]:
+                        path = resolve_url(frame["image_url"], result["video_id"], "image/jpeg")
+                        frames.append(dict(frame, frame_id=frame["image_url"].rsplit("/", 1)[-1], result_id=result["result_id"], video_id=result["video_id"], path=path))
+                else:
+                    public_frames = []
+                    for fraction in (0.2, 0.5, 0.8)[:budget]:
+                        timestamp = result["start_sec"] + fraction * (result["end_sec"] - result["start_sec"])
+                        frame_id = identifier("media")
+                        path = directory / f"{frame_id}.jpg"
+                        media.frame(source, timestamp, path)
+                        frame = dict(timestamp_sec=timestamp, image_url=f"{self.settings.public_base_url}/api/v1/media/{frame_id}", quality=image_quality(path), checks=[])
+                        public_frames.append(frame)
+                        pending.append((frame_id, str(path), "image/jpeg", result["video_id"], attempt))
+                        frames.append(dict(frame, frame_id=frame_id, result_id=result["result_id"], video_id=result["video_id"], path=path))
+                    updates[result["result_id"]] = public_frames
+                remaining -= len(frames)
+                groups.append(dict(result_id=result["result_id"], video_id=result["video_id"], camera_label=result["camera_label"], start_sec=result["start_sec"], end_sec=result["end_sec"], frames=frames))
+            with self.store.transaction() as db:
+                current = self.require(db, "search", search_id)
+                if current["status"] != "succeeded":
+                    raise ApiFailure(409, "SEARCH_NOT_READY", "The search is no longer available for inspection.")
+                for entry in pending:
+                    db.execute("INSERT INTO media VALUES(?,?,?,?,?)", entry)
+                for result in current["results"]:
+                    if result["result_id"] in updates:
+                        result["evidence"] = updates[result["result_id"]]
+                        if result["verification"]["status"] == "not_checked":
+                            result["verification"]["reason"] = "Sampled frames are available for visual question answering. No dedicated attribute check was performed."
+                self.store.put(db, "search", search_id, current)
+            return groups
+        except Exception as exc:
+            shutil.rmtree(directory, ignore_errors=True)
+            if isinstance(exc, ApiFailure):
+                raise
+            raise ApiFailure(503, "VISUAL_EVIDENCE_UNAVAILABLE", "Frames could not be extracted from the retrieved recording.") from None
 
     def progress(self, job_id, stage, percentage):
         with self.store.transaction() as db:
@@ -174,7 +279,7 @@ class Service:
             code = exc.code if isinstance(exc, media.MediaError) else {"prepare_video": "MEDIA_DECODE_FAILED", "index_video": "INDEXING_FAILED", "search": "SEARCH_FAILED"}[job["kind"]]
             message = exc.message if isinstance(exc, media.MediaError) else "Processing failed. Check backend configuration and retry."
             logger.error("job=%s kind=%s failed=%s", job["job_id"], job["kind"], code)
-            error = dict(code=code, message=message, details={})
+            error = dict(code="MODEL_UNAVAILABLE", message=str(exc), details=exc.details) if isinstance(exc, ModelUnavailable) else dict(code=code, message=message, details={})
             with self.store.transaction() as db:
                 current = self.require(db, "job", job["job_id"])
                 current.update(status="failed", stage="failed", updated_at=now(), error=error)

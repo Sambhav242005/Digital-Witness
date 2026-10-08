@@ -1,6 +1,6 @@
 import { ApiError } from './errors';
 import type { ApiClient } from './client';
-import type { AcceptedSearch, AcceptedVideo, EventType, Health, Job, Search, SearchRequest, Video, VideoPage, ZoneInput } from './types';
+import type { Chat, AcceptedSearch, AcceptedVideo, EventType, Health, Job, Search, SearchRequest, Video, VideoPage, ZoneInput } from './types';
 import { fixtureJobs, fixtureSearches, fixtureVideos } from './fixtures';
 
 const now = () => new Date().toISOString();
@@ -69,8 +69,36 @@ function progress(jobId: string): Job {
   return item.job;
 }
 
+const chats = new Map<string, Chat>();
+function readChat(chatId: string): Chat {
+  if (!chats.has(chatId) && typeof window !== 'undefined') {
+    try { const saved = window.localStorage.getItem(`dw_mock_chat_${chatId}`); if (saved) chats.set(chatId, JSON.parse(saved) as Chat); } catch { /* Recover with a new demo conversation. */ }
+  }
+  const chat = chats.get(chatId);
+  if (!chat) throw new ApiError({ status: 404, error: { code: 'CHAT_NOT_FOUND', message: 'Conversation was not found.', details: {} } });
+  return chat;
+}
+function writeChat(chat: Chat) {
+  chats.set(chat.chat_id, chat);
+  if (typeof window !== 'undefined') window.localStorage.setItem(`dw_mock_chat_${chat.chat_id}`, JSON.stringify(chat));
+}
 export const mockApi: ApiClient = {
-  async health(): Promise<Health> { hydrateMockState(); return { status: 'ok', contract_version: '1.0', mode: 'mock', capabilities: { semantic_search: true, frame_verification: true, temporal_events: false }, supported_event_types: [] }; },
+  async createChat(videoIds) {
+    const chat: Chat = { chat_id: `chat_${Math.random().toString(36).slice(2, 10)}`, video_ids: [...videoIds], created_at: now(), updated_at: now(), status: 'idle', active_turn_id: null, context: null, messages: [], error: null }; writeChat(chat); return chat;
+  },
+  async getChat(chatId) { return readChat(chatId); },
+  async sendChatMessage(chatId, message) {
+    const chat = readChat(chatId);
+    const request = { query: message, video_ids: chat.video_ids, limit: 10 };
+    const accepted = await this.createSearch(request);
+    for (let tick = 0; tick < 4; tick++) await this.getJob(accepted.job.job_id);
+    const search = await this.getSearch(accepted.search_id);
+    writeChat({ ...chat, updated_at: now(), context: request, messages: [...chat.messages,
+      { message_id: `msg_user_${accepted.search_id}`, role: 'user', text: message, created_at: now(), search_ids: [], result_ids: [] },
+      { message_id: `msg_assistant_${accepted.search_id}`, role: 'assistant', text: 'MOCK response: sample search results. Live follow-up reasoning requires the backend Gemini service.', created_at: now(), search_ids: [accepted.search_id], result_ids: search.results.map((result) => result.result_id) }], status: 'idle', error: null });
+    return { chat_id: chatId, turn_id: `turn_${accepted.search_id}` };
+  },
+  async health(): Promise<Health> { hydrateMockState(); return { status: 'ok', contract_version: '1.1', mode: 'mock', capabilities: { semantic_search: true, frame_verification: true, temporal_events: false, chat: true }, supported_event_types: [] }; },
   async listVideos(limit, offset): Promise<VideoPage> { hydrateMockState(); const videos = readVideos(); return { items: videos.slice(offset, offset + limit), total: videos.length, limit, offset }; },
   async getVideo(videoId) { hydrateMockState(); const video = readVideos().find((entry) => entry.video_id === videoId); if (!video) throw new ApiError({ status: 404, error: { code: 'VIDEO_NOT_FOUND', message: 'Recording was not found.', details: { video_id: videoId } } }); return video; },
   async uploadVideo(file, cameraLabel): Promise<AcceptedVideo> {

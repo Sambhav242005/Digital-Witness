@@ -1,7 +1,10 @@
 import { ApiError, parseApiError } from './errors';
-import type { AcceptedSearch, AcceptedVideo, Health, Job, Search, SearchRequest, Video, VideoPage, ZoneInput } from './types';
+import type { AcceptedChatTurn, Chat, AcceptedSearch, AcceptedVideo, Health, Job, Search, SearchRequest, Video, VideoPage, ZoneInput } from './types';
 
 export interface ApiClient {
+  createChat(videoIds: string[]): Promise<Chat>;
+  getChat(chatId: string): Promise<Chat>;
+  sendChatMessage(chatId: string, message: string): Promise<AcceptedChatTurn>;
   health(): Promise<Health>;
   listVideos(limit: number, offset: number): Promise<VideoPage>;
   getVideo(videoId: string): Promise<Video>;
@@ -29,6 +32,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const liveApi: ApiClient = {
+  createChat: (videoIds) => request<Chat>('/chats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ video_ids: videoIds }) }),
+  getChat: (chatId) => request<Chat>(`/chats/${encodeURIComponent(chatId)}`),
+  sendChatMessage: (chatId, message) => request<AcceptedChatTurn>(`/chats/${encodeURIComponent(chatId)}/messages`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) }),
   health: () => request<Health>('/health'),
   listVideos: (limit, offset) => request<VideoPage>(`/videos?limit=${limit}&offset=${offset}`),
   getVideo: (videoId) => request<Video>(`/videos/${encodeURIComponent(videoId)}`),
@@ -54,6 +60,9 @@ async function activeClient(): Promise<ApiClient> {
 }
 
 export const api: ApiClient = {
+  createChat: async (videoIds) => (await activeClient()).createChat(videoIds),
+  getChat: async (chatId) => (await activeClient()).getChat(chatId),
+  sendChatMessage: async (chatId, message) => (await activeClient()).sendChatMessage(chatId, message),
   health: async () => (await activeClient()).health(),
   listVideos: async (limit, offset) => (await activeClient()).listVideos(limit, offset),
   getVideo: async (videoId) => (await activeClient()).getVideo(videoId),

@@ -9,13 +9,14 @@ from pathlib import Path
 from threading import RLock
 
 from . import ModelUnavailable
+from .upstream import ProviderCooldown
 from .vectors import normalize
 
 MODEL_ID = "gemini-embedding-2"
 MAX_INLINE_BYTES = 14 * 1024 * 1024  # Leaves room for base64 under 20 MB.
 
 
-class GeminiEmbeddingAdapter:
+class GeminiEmbeddingAdapter(ProviderCooldown):
     def __init__(self, api_key=None, model=MODEL_ID, timeout_ms=60000):
         self._api_key = api_key if api_key is not None else os.getenv("GEMINI_API_KEY")
         self.revision = model
@@ -43,9 +44,8 @@ class GeminiEmbeddingAdapter:
             if not response.embeddings or len(response.embeddings) != 1:
                 raise ValueError("Expected exactly one aggregated embedding")
             return normalize(response.embeddings[0].values)
-        except Exception:
-            # SDK errors can contain request details. Never retain or chain them.
-            raise ModelUnavailable("Gemini embedding request failed; check credentials, quota, model access, and network") from None
+        except Exception as exc:
+            raise self.provider_failure(exc, "Gemini embedding request") from None
 
     def load(self):
         with self._lock:
@@ -61,7 +61,7 @@ class GeminiEmbeddingAdapter:
                     api_key=self._api_key,
                     http_options=types.HttpOptions(
                         timeout=self.timeout_ms,
-                        retry_options=types.HttpRetryOptions(attempts=2, initial_delay=1, max_delay=2),
+                        retry_options=types.HttpRetryOptions(attempts=1, initial_delay=1, max_delay=2),
                     ),
                 )
                 for query in ("a person carrying a bag", "an empty outdoor scene"):
@@ -76,6 +76,13 @@ class GeminiEmbeddingAdapter:
                     self._request([types.Part.from_bytes(data=clip.read_bytes(), mime_type="video/mp4")])
                 self.available = True
                 self.error = None
+            except ModelUnavailable as exc:
+                if exc.details.get("retry_after_sec"):
+                    self._needs_reload = True
+                    raise
+                self.close()
+                self.error = str(exc)
+                raise
             except Exception:
                 self.close()
                 self.error = "Gemini embedding smoke test failed; check credentials, quota, model access, FFmpeg, and network"
@@ -94,7 +101,7 @@ class GeminiEmbeddingAdapter:
     def embed_text(self, query):
         with self._lock:
             if not self.available or self._client is None:
-                raise ModelUnavailable(self.error or "Gemini embedding model unavailable")
+                raise self.unavailable(self.error or "Gemini embedding model unavailable")
             return self._request(f"task: search result | query: {query}")
 
     def embed_clip(self, video_path, start_sec, end_sec):
@@ -102,7 +109,7 @@ class GeminiEmbeddingAdapter:
             raise ValueError("Clip must be a finite interval no longer than eight seconds")
         with self._lock:
             if not self.available or self._client is None:
-                raise ModelUnavailable(self.error or "Gemini embedding model unavailable")
+                raise self.unavailable(self.error or "Gemini embedding model unavailable")
             from google.genai import types
             with tempfile.TemporaryDirectory(prefix="dw-gemini-embedding-") as directory:
                 clip = Path(directory) / "clip.mp4"

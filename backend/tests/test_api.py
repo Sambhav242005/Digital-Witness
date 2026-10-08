@@ -66,6 +66,21 @@ def ready(client, footage):
     return video
 
 
+def test_index_route_reindexes_ready_video_after_embedding_model_change(client,footage):
+    video=ready(client,footage)
+    adapter=client.app.state.service.embedding
+    adapter.revision='new-test-embedding-v2'
+    response=client.post(f'/api/v1/videos/{video["video_id"]}/index',json={})
+    assert response.status_code==202,response.text
+    assert response.json()['data']['video']['status']=='indexing'
+    client.app.state.service.run_one()
+    updated=client.get('/api/v1/videos/'+video['video_id']).json()['data']
+    assert updated['status']=='ready'
+    with client.app.state.service.store.transaction() as db:
+        revisions={row[0] for row in db.execute('SELECT DISTINCT revision FROM clips WHERE video_id=?',(video['video_id'],))}
+    assert revisions=={'new-test-embedding-v2'}
+
+
 def search(client, video, query="a bag", **kwargs):
     response = client.post("/api/v1/searches", json=dict(query=query, video_ids=[video["video_id"]], **kwargs))
     assert response.status_code == 202, response.text

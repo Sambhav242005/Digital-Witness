@@ -11,3 +11,9 @@ __pycache__/
 *.mp4
 *.npy
 *.npz
+frontend/node_modules/
+frontend/.next/
+frontend/*.tsbuildinfo
+
+# User-provided demo footage
+/istockphoto-2289401339-640_adpp_is.mp4

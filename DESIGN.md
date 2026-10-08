@@ -42,7 +42,7 @@ Always show basis and reason alongside evidence. A bag-carrying check supports t
 ## System boundaries
 
 ```text
-React + TypeScript + Vite browser
+Next.js (App Router) + React + TypeScript browser
     | /api/v1 JSON and multipart upload
     v
 FastAPI routes and Pydantic schemas
@@ -58,6 +58,8 @@ SQLite metadata + media files + persistent local vector index
 
 Browser video player <-- ID-mapped HTTP media service with Range support
 ```
+
+Next.js App Router supplies pages and layouts. Interactive upload, polygon editing, polling and video controls use Client Components; browser APIs run in effects or event handlers. Browser calls go directly to FastAPI. Fetch changing job/search state without caching.
 
 The frontend API module owns base URLs, envelopes and error parsing. UI components consume that module and generated/imported contract types. Fixtures use the same interface as live responses and simulate terminal lifecycle transitions.
 
@@ -92,7 +94,7 @@ The browser restores recording state and active search ID after refresh. Stop po
 | sample-data/README.md | Consenting/staged demo footage instructions and expected moments |
 | README.md | Verified setup, startup, evaluation and hardware limitations |
 
-These are planned directories, not an assertion that code exists. Frontend defaults to localhost:5173 and backend to localhost:8000. Configure an explicit CORS origin allowlist and reachable absolute media URLs. Browser configuration is public; keep model credentials in backend configuration. Local unauthenticated mode is intended for the local demo.
+These are planned directories, not an assertion that code exists. Frontend defaults to localhost:3000 and backend to localhost:8000. Configure an explicit CORS origin allowlist and reachable absolute media URLs. Use NEXT_PUBLIC_API_BASE_URL and NEXT_PUBLIC_USE_MOCKS in frontend/.env.local, with safe placeholders in .env.example; public values are embedded at build time. Browser configuration is public; keep model credentials in backend configuration. Local unauthenticated mode is intended for the local demo.
 
 ## Integration gates
 

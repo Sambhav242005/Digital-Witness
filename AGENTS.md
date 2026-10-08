@@ -36,6 +36,7 @@ Live streams, authentication, cross-camera identity, alerts, exports and mobile 
 
 ## Shared implementation rules
 
+- Build the frontend with Next.js App Router, React and TypeScript. Use Client Components for upload, zones, polling and playback; keep API and AI work in FastAPI. Default frontend origin is http://localhost:3000.
 - Preserve /api/v1 routes, snake_case fields, opaque IDs, explicit nulls and envelopes from SPEC.md.
 - Use recording-relative seconds, half-open intervals and normalized image coordinates. Preserve the source time axis through media processing.
 - Keep ranking, relevance thresholds, model calls and event inference on the backend. The frontend preserves result order.

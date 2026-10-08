@@ -59,7 +59,9 @@ P1 event rules:
 
 ## 5. Architecture and fixed conventions
 
-Frontend: React + TypeScript + Vite; native HTML video; a canvas or SVG polygon overlay. Backend: Python + FastAPI; FFmpeg for probing/transcoding; SQLite metadata; a persistent local vector index; one background worker initially. Backend chooses a tested detector/tracker for P1. CPU mode may be slower; do not promise real-time throughput before measurement.
+Frontend: Next.js (App Router) + React + TypeScript; native HTML video; a canvas or SVG polygon overlay. Backend: Python + FastAPI; FFmpeg for probing/transcoding; SQLite metadata; a persistent local vector index; one background worker initially. Backend chooses a tested detector/tracker for P1. CPU mode may be slower; do not promise real-time throughput before measurement.
+
+Interactive upload, polygon editing, polling and playback use Next.js Client Components. Browser calls go directly to FastAPI through a shared API client; FastAPI owns the API and AI pipeline. Frontend configuration uses `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_USE_MOCKS`; these are public build-time values, never secrets.
 
 Suggested repository layout:
 
@@ -83,7 +85,7 @@ Rules:
 - Normal JSON success bodies use `{ "data": ... }`; media responses and `/openapi.json` do not use this wrapper.
 - Failures use the error envelope in section 8, including FastAPI validation failures.
 - No WebSockets in v1. Poll jobs every 2 seconds; stop on terminal state or unmount.
-- Default frontend origin `http://localhost:5173`; backend `http://localhost:8000`. Configure an explicit CORS allowlist.
+- Default frontend origin `http://localhost:3000`; backend `http://localhost:8000`. Configure an explicit CORS allowlist.
 - Local single-user mode has no authentication. Do not publish this mode as a public service.
 
 ## 6. Canonical data types

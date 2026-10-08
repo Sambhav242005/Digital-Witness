@@ -10,12 +10,15 @@ Read [Digital-Witness-SRS.md](Digital-Witness-SRS.md) first. Its section 6 types
 
 ## 2. Technology and ownership
 
-Use React + TypeScript + Vite, a native HTML video player, and SVG/canvas for zone editing. Keep the UI library simple and familiar. Own `frontend/`; keep service access in one API module. Backend exports OpenAPI and fixtures in `contracts/`.
+Use Next.js (App Router) + React + TypeScript, a native HTML video player, and SVG/canvas for zone editing. Keep the UI library simple and familiar. Own `frontend/`; keep service access in one API module. Backend exports OpenAPI and fixtures in `contracts/`.
 
 Suggested structure:
 
 ```text
 frontend/src/
+  app/layout.tsx            # shared application shell
+  app/page.tsx              # recording/search workspace entry
+  app/globals.css           # global styles
   api/client.ts             # base URL, envelopes, errors, requests
   api/types.ts              # generated from approved OpenAPI
   api/mock.ts               # same client interface; dev-only fixtures
@@ -26,7 +29,19 @@ frontend/src/
   components/               # common progress/error/empty UI
 ```
 
-Configuration: `VITE_API_BASE_URL=http://localhost:8000/api/v1`; `VITE_USE_MOCKS=false`. Build request URLs from this base. Use returned media URLs unchanged; do not prefix them a second time. Browser environment variables are public: no model keys or server secrets belong here.
+Configuration: `NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api/v1`; `NEXT_PUBLIC_USE_MOCKS=false`. Build request URLs from this base. Use returned media URLs unchanged; do not prefix them a second time. Browser environment variables are public: no model keys or server secrets belong here.
+
+### Next.js boundaries and development
+
+Keep App Router layouts/pages as Server Components where appropriate. Mark interactive entry components with `'use client'`: uploads, polygon editing, polling/search state, player controls and evidence interactions. Access `window`, `sessionStorage`, media refs and browser APIs in effects or event handlers so initial rendering does not fail.
+
+Browser requests go directly to FastAPI through the shared API client, including multipart uploads and media playback. FastAPI continues to own `/api/v1`, persistence, jobs and AI inference. Use client polling for changing job/search state; request fresh data with `cache: 'no-store'`. Keep live/mock selection identical across initial rendering and hydration.
+
+Store local environment values in `frontend/.env.local` and publish safe placeholders in `.env.example`. Read public variables explicitly as `process.env.NEXT_PUBLIC_API_BASE_URL` and `process.env.NEXT_PUBLIC_USE_MOCKS === 'true'`. Next.js embeds public values at build time, so rebuild when changing deployed configuration. Never expose secrets with the `NEXT_PUBLIC_` prefix.
+
+Once scaffolded, document package scripts for `next dev`, `next build` and `next start`; use port 3000 locally and configure backend CORS for `http://localhost:3000`. Verify both production build and interactive behavior before handoff.
+
+References: [Server and Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components), [Environment Variables](https://nextjs.org/docs/app/guides/environment-variables).
 
 ## 3. Screens and behavior
 
@@ -80,7 +95,7 @@ Clicking a card loads playback_url, waits for loadedmetadata, seeks to start_sec
 ### F1 — Contract and working skeleton
 
 - Read SRS with backend developer; settle any ambiguity before coding.
-- Create app, layout, API wrapper and structured ApiError handling.
+- Create Next.js App Router app, layout, client component boundaries, API wrapper and structured ApiError handling.
 - Import/generate types from backend OpenAPI; keep fixtures typed.
 - Implement live/mock switch with a persistent visible mock badge.
 - Build status and error components before feature-specific screens.

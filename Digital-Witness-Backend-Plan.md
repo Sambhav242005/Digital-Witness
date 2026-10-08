@@ -28,7 +28,7 @@ contracts/openapi.json
 contracts/fixtures/
 ```
 
-Configuration proposal: FRONTEND_ORIGIN, PUBLIC_BASE_URL, DATA_DIR, DEVICE, EMBEDDING_MODEL_REVISION, LAYA_MODEL_REVISION, MAX_QUEUED_JOBS=20. HTTP server defaults to port 8000. Do not assume the browser can reach container-internal hostnames. Model credentials remain on the server.
+Configuration proposal: FRONTEND_ORIGIN, PUBLIC_BASE_URL, DATA_DIR, DEVICE, EMBEDDING_MODEL_REVISION, LAYA_MODEL_REVISION, MAX_QUEUED_JOBS=20. HTTP server defaults to port 8000. The Next.js frontend runs at http://localhost:3000; set FRONTEND_ORIGIN to that origin for local CORS. Browser requests, including uploads, go directly to FastAPI. Do not assume the browser can reach container-internal hostnames. Model credentials remain on the server.
 
 ## 3. Build in this order
 

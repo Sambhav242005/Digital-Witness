@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "INTERNAL_ERROR",
+    "message": "Internal error",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

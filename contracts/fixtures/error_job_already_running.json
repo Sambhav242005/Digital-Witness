@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "JOB_ALREADY_RUNNING",
+    "message": "Job already running",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

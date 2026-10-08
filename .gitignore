@@ -1,0 +1,13 @@
+backend/.venv/
+backend/data/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.local
+*.sqlite*
+*.safetensors
+*.pt
+*.mp4
+*.npy
+*.npz

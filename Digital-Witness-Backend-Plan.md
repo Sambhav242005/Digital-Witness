@@ -1,16 +1,16 @@
 # Digital Witness — Backend and AI Developer Plan
 
-Owner: Person 2 • Contract: v1.0 • Date: 8 October 2026
+Owner: Person 2 • Contract: v1.1 • Date: 8 October 2026
 
 ## 1. Your goal
 
-Deliver one service that owns video preparation, persistence, background processing, EmbeddingGemma 2 retrieval, Laya-V visual checks, and browser-compatible media. The frontend developer must be able to implement the UI entirely from your OpenAPI and fixtures.
+Deliver one service that owns video preparation, persistence, background processing, Gemini Embedding 2 retrieval, Gemini visual checks, and browser-compatible media. The frontend developer must be able to implement the UI entirely from your OpenAPI and fixtures.
 
-Read [Digital-Witness-SRS.md](Digital-Witness-SRS.md) first. It controls route names, response envelopes, lifecycle and semantics. Coordinate with [Digital-Witness-Frontend-Plan.md](Digital-Witness-Frontend-Plan.md). You own backend and AI because this team has only two developers.
+Read [SPEC.md](SPEC.md) first; it controls route names, response envelopes, lifecycle and semantics. Keep [Digital-Witness-SRS.md](Digital-Witness-SRS.md) synchronized as the companion requirements document. Coordinate with [Digital-Witness-Frontend-Plan.md](Digital-Witness-Frontend-Plan.md). You own backend and AI because this team has only two developers.
 
 ## 2. Stack and internal boundaries
 
-Use Python + FastAPI + Pydantic; FFmpeg/ffprobe for media; SQLite for metadata; persistent local vector index for retrieval; one background worker. Pin versions after smoke-testing the models. Keep the model adapters independent so UI/API development can proceed while weights load.
+Use Python + FastAPI + Pydantic; FFmpeg/ffprobe for media; SQLite for metadata; persistent local vector index for retrieval; one background worker. Pin versions after smoke-testing the models. Keep the model adapters independent so UI/API development can proceed while adapters load.
 
 ```text
 backend/app/
@@ -18,8 +18,8 @@ backend/app/
   schemas/                 # canonical Pydantic wire schemas
   services/                # video/search/job orchestration
   workers/                 # persisted queue and execution
-  ai/embedding_adapter.py  # EmbeddingGemma 2
-  ai/verification_adapter.py # Laya-V
+  ai/embedding_adapter.py  # Gemini Embedding 2
+  ai/verification_adapter.py # Gemini
   ai/tracking_adapter.py   # P1 detector + tracker
   events/                  # P1 geometry and temporal rules
   storage/                 # metadata, vectors and media mappings
@@ -28,7 +28,7 @@ contracts/openapi.json
 contracts/fixtures/
 ```
 
-Configuration proposal: FRONTEND_ORIGIN, PUBLIC_BASE_URL, DATA_DIR, DEVICE, EMBEDDING_MODEL_REVISION, LAYA_MODEL_REVISION, MAX_QUEUED_JOBS=20. HTTP server defaults to port 8000. The Next.js frontend runs at http://localhost:3000; set FRONTEND_ORIGIN to that origin for local CORS. Browser requests, including uploads, go directly to FastAPI. Do not assume the browser can reach container-internal hostnames. Model credentials remain on the server.
+Configuration proposal: FRONTEND_ORIGIN, PUBLIC_BASE_URL, DATA_DIR, DEVICE, GEMINI_API_KEY, GEMINI_EMBEDDING_MODEL, GEMINI_CHAT_MODEL, GEMINI_VERIFICATION_MODEL, MAX_QUEUED_JOBS=20. HTTP server defaults to port 8000. The Next.js frontend runs at http://localhost:3000; set FRONTEND_ORIGIN to that origin for local CORS. Browser requests, including uploads, go directly to FastAPI. Do not assume the browser can reach container-internal hostnames. Model credentials remain on the server.
 
 ## 3. Build in this order
 
@@ -58,7 +58,7 @@ Perform a model smoke test before a long indexing run: embed a short clip and tw
 Indexing algorithm:
 1. Generate 8-second windows at a 4-second stride, retaining final partial window.
 2. Produce clip/frame inputs using the model's supported processor, preserving original seconds.
-3. Embed clips with EmbeddingGemma 2, normalize consistently, and store clip_id → vector mapping with model revision.
+3. Embed clips with Gemini Embedding 2, normalize consistently, and store clip_id → vector mapping with model revision.
 4. Store thumbnails and clip boundaries; optional observation templates are supplementary.
 5. Atomically publish the complete index and mark ready. Failed attempts must not leave queryable partial indexes.
 
@@ -73,17 +73,17 @@ Query algorithm:
 
 Deliverable: real query retrieves real footage even before temporal event inference exists.
 
-### B4 — Add Laya-V checks and truthful results
+### B4 — Add Gemini checks and truthful results
 
 Create an allowlisted query-to-check mapping. Initial checks: `bag_present`, `person_carrying_bag`. Unmatched queries remain valid semantic searches but have `not_checked` verification. Do not use a model-dependent freeform JSON generator merely to parse these first checks.
 
-For each top candidate, sample up to 3 representative frames within actual interval. Check readability/quality, then call Laya-V with explicit image questions. Keep probabilities, answers and source timestamps. Thresholds must be configurable and validated on demo footage. Probability alone does not guarantee correctness, especially for poor images.
+For each top candidate, sample up to 3 representative frames within actual interval. Check readability/quality, then call Gemini with explicit image questions. Keep structured yes/no/uncertain answers and source timestamps; set probability_yes to null because generated answers provide no calibrated class probability. Validate check behavior and readability thresholds on staged footage.
 
 Verification rules:
 - Frame answers can support visible attributes only.
 - Contradictory or weak evidence yields contradicted or uncertain, not a confident summary.
 - Unsupported checks yield not_checked with reason.
-- If Laya-V is unavailable, preserve semantic search results with warnings and not_checked.
+- If Gemini is unavailable, preserve semantic search results with warnings and not_checked.
 - Do not turn “bag visible” into “person abandoned bag.” Use temporal rules for that claim.
 - Evidence must come from the selected video and valid time interval.
 
@@ -93,7 +93,7 @@ Deliverable: evidence-backed frame checks displayed through frontend, with no co
 
 ### B5 — Add detection/tracking and temporal events only after P0
 
-Choose and pin a detector with suitable person/bag classes and a compatible tracker. This is an additional component; neither embedding retrieval nor Laya-V supplies persistent object identity. Track IDs are local to a recording and are not real-world person identities.
+Choose and pin a detector with suitable person/bag classes and a compatible tracker. This is an additional component; neither embedding retrieval nor Gemini supplies persistent object identity. Track IDs are local to a recording and are not real-world person identities.
 
 Run detection at an independently chosen sampling rate sufficient for movement; sparse embedding samples are not automatically adequate for tracking. Maintain timestamps and track gaps. Implement point-in-polygon against normalized entrance geometry.
 
@@ -135,12 +135,12 @@ Public Video and Search shapes remain exactly as specified even if internal tabl
 ## 6. Model integration notes
 
 Review the actual model cards and compatible runtime examples while implementing:
-- https://huggingface.co/google/embeddinggemma-2
-- https://huggingface.co/henilchopada/laya-v
+- https://ai.google.dev/gemini-api/docs/embeddings
+- https://ai.google.dev/gemini-api/docs/image-understanding
 
-EmbeddingGemma 2: use supported multimodal input, matching dimensions and consistent normalization; choose BF16 on supported hardware or FP32, not FP16. Disable unused audio encoder only via a documented supported configuration. Its video sampling default is 1 FPS; assess whether this misses brief events and tune the retrieval input if needed.
+Gemini Embedding 2: use the Google API with direct visual clip/frame input, matching dimensions and consistent normalization. Use the documented retrieval query prefix rather than the unsupported task_type field. Store API model identifier, dimensions and preprocessing version with each index. Gemini chat uses the same GEMINI_API_KEY and backend search tools; Gemini visual checks use the same key and default `gemini-3.5-flash` through GEMINI_VERIFICATION_MODEL. Validate model access and requests before advertising capabilities. Footage samples sent for embedding leave the local machine for Google processing.
 
-Laya-V: single-image closed-set decisions; output adapter converts its native result into FrameCheck. It is not a caption generator, bounding-box detector or temporal tracker. Check image quality separately. Run a small controlled evaluation before describing its answers as reliable CCTV verification.
+Gemini visual verification: single-image allowlisted decisions parsed from structured yes/no/uncertain output into FrameCheck, with probability_yes:null. This adapter supplies narrow visual checks rather than captions, bounding boxes or temporal tracking. Check image quality separately. Run a small controlled evaluation before describing its answers as reliable CCTV verification.
 
 Do not combine a clip's embedding similarity and a frame's answer probability into an unexplained “confidence.” Keep both semantically distinct. Measured benchmarks, model-loading time and peak memory belong in README after testing.
 
@@ -174,7 +174,7 @@ AI/data integration tests:
 - [ ] Duplicate windows do not flood the result list.
 - [ ] Unrelated query can produce no results.
 - [ ] Missing/poor frames cannot produce unsupported certainty.
-- [ ] Unavailable Laya-V degrades transparently; unavailable retrieval fails explicitly.
+- [ ] Unavailable Gemini degrades transparently; unavailable retrieval fails explicitly.
 - [ ] Model/index versions remain compatible after restart.
 - [ ] P1 includes entry, stationary bag, passing person, bag retrieved and occlusion cases.
 
@@ -185,3 +185,9 @@ Use the shared staged-video evaluation described in SRS section 11. Record obser
 P0 is done only when both developers run upload → preview → optional zone → index → search → evidence → playback on the real pipeline, with mocks disabled, and AC01–AC09 pass. Supply startup commands, pinned dependencies, environment example, model download instructions and known hardware limits in README.
 
 If time is short, defer P1, reference-person search, live feeds and elaborate infrastructure. Preserve working semantic retrieval, honest frame verification, job recovery and playable source evidence. A two-person team should finish this vertical workflow before expanding scope.
+
+## Persistent footage chat — contract 1.1
+
+Gemini chat and Gemini Embedding 2 use the same server-side Google API key. Gemini visual verification uses the same key through GEMINI_VERIFICATION_MODEL (default `gemini-3.5-flash`), and evidence frames go to Google. Persist chats, messages, SearchRequest follow-up context and internal turn tasks. Expose chat creation, detail and asynchronous message endpoints defined in SPEC.md; health advertises actual chat capability. Use bounded execution, one active turn per chat, restart recovery and validated search_video/get_search_results/finish_response tools. Gemini selects actual retrieved result IDs; the backend renders their stored interval, summary and verification reasons rather than publishing freeform model text. Cite stored search/result IDs and preserve evidence limits. Google embedding requests send visual footage content outside the local machine; keep keys and local paths out of the API.
+
+Google model configuration defaults to `gemini-embedding-2` and `gemini-3.5-flash`; override through GEMINI_EMBEDDING_MODEL and GEMINI_CHAT_MODEL. Live model access and acceptance remain unverified until successful API smoke requests and staged-footage evaluation.

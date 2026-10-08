@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "VIDEO_NOT_READY",
+    "message": "Video not ready",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

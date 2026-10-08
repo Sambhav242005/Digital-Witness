@@ -1,0 +1,13 @@
+{
+  "data": {
+    "job_id": "job_fixture",
+    "kind": "prepare_video",
+    "resource_id": "vid_fixture",
+    "status": "queued",
+    "stage": "queued",
+    "progress_pct": 0.0,
+    "created_at": "2026-10-08T04:30:00Z",
+    "updated_at": "2026-10-08T04:30:00Z",
+    "error": null
+  }
+}

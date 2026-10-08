@@ -1,0 +1,36 @@
+{
+  "data": {
+    "chat_id": "chat_fixture",
+    "video_ids": [
+      "vid_fixture"
+    ],
+    "created_at": "2026-10-08T04:30:00Z",
+    "updated_at": "2026-10-08T04:30:00Z",
+    "status": "failed",
+    "active_turn_id": null,
+    "context": {
+      "query": "person carrying a bag",
+      "video_ids": [
+        "vid_fixture"
+      ],
+      "limit": 10,
+      "time_range": null,
+      "event_types": []
+    },
+    "messages": [
+      {
+        "message_id": "message_fixture",
+        "role": "user",
+        "text": "Show a person carrying a bag",
+        "created_at": "2026-10-08T04:30:00Z",
+        "search_ids": [],
+        "result_ids": []
+      }
+    ],
+    "error": {
+      "code": "WORKER_INTERRUPTED",
+      "message": "The turn was interrupted; submit another message.",
+      "details": {}
+    }
+  }
+}

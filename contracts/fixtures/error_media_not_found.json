@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "MEDIA_NOT_FOUND",
+    "message": "Media not found",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

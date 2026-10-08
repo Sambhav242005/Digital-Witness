@@ -1,0 +1,15 @@
+{
+  "data": {
+    "search_id": "search_fixture",
+    "job_id": "job_fixture_search",
+    "status": "queued",
+    "query": "person carrying a bag",
+    "video_ids": [
+      "vid_fixture"
+    ],
+    "created_at": "2026-10-08T04:30:00Z",
+    "warnings": [],
+    "results": [],
+    "error": null
+  }
+}

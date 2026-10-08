@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "UNSUPPORTED_EVENT_TYPE",
+    "message": "Unsupported event type",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

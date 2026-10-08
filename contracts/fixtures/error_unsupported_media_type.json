@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "UNSUPPORTED_MEDIA_TYPE",
+    "message": "Unsupported media type",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

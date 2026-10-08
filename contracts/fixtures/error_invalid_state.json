@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "INVALID_STATE",
+    "message": "Invalid state",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

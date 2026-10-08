@@ -1,0 +1,16 @@
+{
+  "data": {
+    "search_id": "search_fixture",
+    "job": {
+      "job_id": "job_fixture_search",
+      "kind": "search",
+      "resource_id": "search_fixture",
+      "status": "queued",
+      "stage": "queued",
+      "progress_pct": 0.0,
+      "created_at": "2026-10-08T04:30:00Z",
+      "updated_at": "2026-10-08T04:30:00Z",
+      "error": null
+    }
+  }
+}

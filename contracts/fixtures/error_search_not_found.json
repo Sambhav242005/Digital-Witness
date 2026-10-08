@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "SEARCH_NOT_FOUND",
+    "message": "Search not found",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

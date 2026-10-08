@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "CHAT_NOT_FOUND",
+    "message": "Chat not found",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "FILE_TOO_LARGE",
+    "message": "File too large",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

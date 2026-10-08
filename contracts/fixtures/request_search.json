@@ -1,0 +1,12 @@
+{
+  "query": "person carrying a bag",
+  "video_ids": [
+    "vid_fixture"
+  ],
+  "limit": 10,
+  "time_range": {
+    "start_sec": 0.0,
+    "end_sec": 12.0
+  },
+  "event_types": []
+}

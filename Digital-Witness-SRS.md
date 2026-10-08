@@ -1,12 +1,12 @@
 # Digital Witness — Shared SRS and Integration Contract
 
-Version: 1.0 • Date: 8 October 2026 • Team: one frontend developer and one backend/AI developer
+Version: 1.1 • Date: 8 October 2026 • Team: one frontend developer and one backend/AI developer
 
 ## 1. Purpose and authority
 
 Turn an uploaded CCTV recording into searchable moments. A user types a description, receives ranked clips, and opens the original recording at the relevant time with supporting frame checks.
 
-This file is the source of truth for both developers. Read it before the role-specific plan. The initial delivery is a single-user local demo. All technology choices below are implementation decisions for this plan, not existing implemented features. Contract version is `1.0`; API namespace is `/api/v1`.
+SPEC.md is the canonical contract; this companion file mirrors its requirements. Read it before the role-specific plan. The initial delivery is a single-user local demo. All technology choices below are implementation decisions for this plan, not existing implemented features. Contract version is `1.1`; API namespace is `/api/v1`.
 
 Priority: deliver real upload → indexing → search → playback first. Detection/tracking and temporal event inference follow as the second milestone. Do not describe a visually similar match as a proven event.
 
@@ -15,8 +15,8 @@ Priority: deliver real upload → indexing → search → playback first. Detect
 | Capability | Priority | Owner |
 |---|---|---|
 | Upload MP4, list recordings, view processing state | P0 | Backend API; frontend UI |
-| Search clips with EmbeddingGemma 2 | P0 | Backend |
-| Laya-V frame checks for supported visual questions | P0 | Backend |
+| Search clips with Gemini Embedding 2 | P0 | Backend |
+| Gemini frame checks for supported visual questions | P0 | Backend |
 | Results, evidence panel, original-video playback | P0 | Frontend |
 | Draw entrance polygon before indexing | P0 | Frontend; backend validation/storage |
 | Error, empty, retry and degraded-verification states | P0 | Both |
@@ -40,17 +40,17 @@ P0 supports free-text semantic retrieval. Verification is limited to the declare
 
 ## 4. Model roles and evidence rules
 
-EmbeddingGemma 2 embeds clips and text for retrieval. Laya-V scores predefined image questions; backend code aggregates frame observations. Neither component alone proves a temporal event. Use original timestamps throughout.
+Gemini Embedding 2 embeds clips and text for retrieval. Gemini answers predefined single-frame image questions; backend code aggregates frame observations. Neither component alone proves a temporal event. Use original timestamps throughout.
 
 Initial indexing proposal: 8-second windows with a 4-second stride, including the final short window. Persist actual boundaries. Backend may tune window size without changing the API. Use direct visual embeddings; optional template descriptions are separate supporting metadata, not a replacement for visual indexing.
 
-For supported queries, run Laya-V on selected readable frames from top candidates, initially up to 3 frames for each of 10 candidates. Record every checked timestamp. For arbitrary queries without a supported check, return `not_checked`; do not fabricate a prompt-specific verification. An internal adapter maps query concepts to an allowlist such as `bag_present` and `person_carrying_bag`.
+For supported queries, run Gemini on selected readable frames from top candidates, initially up to 3 frames for each of 10 candidates. Record every checked timestamp. For arbitrary queries without a supported check, return `not_checked`; do not fabricate a prompt-specific verification. An internal adapter maps query concepts to an allowlist such as `bag_present` and `person_carrying_bag`.
 
-Laya-V accepts a single image per request and closed-set questions, not generated captions. Its confidence can remain high on poor images. Validate readability first; low quality yields `uncertain`. EmbeddingGemma 2 supports multimodal embeddings, and its card recommends BF16 or FP32 rather than FP16. Pin tested model revisions and package versions when implementing.
+The visual-check adapter sends one image per request with an allowlisted question and accepts only structured `yes`, `no` or `uncertain` answers. Validate readability first; low quality yields `uncertain`. It returns `probability_yes:null`, because a generated decision does not provide calibrated probabilities or usable class logits. Gemini Embedding 2 uses the Google Gemini API for visual and text embeddings. Gemini chat uses the same server-side GEMINI_API_KEY; Gemini visual checks use the same server-side key through GEMINI_VERIFICATION_MODEL (default `gemini-3.5-flash`). Persist tested API model identifiers, embedding dimensions and preprocessing versions; never expose the key in responses or browser configuration.
 
 Source model cards, reviewed 8 October 2026:
-- https://huggingface.co/henilchopada/laya-v
-- https://huggingface.co/google/embeddinggemma-2
+- https://ai.google.dev/gemini-api/docs/image-understanding
+- https://ai.google.dev/gemini-api/docs/embeddings
 
 P1 event rules:
 - `person_entered`: one track transitions from outside to inside the configured polygon and persists for a configured number of observations.
@@ -154,7 +154,7 @@ type Search = {
 
 | Method and route | Request | Success response |
 |---|---|---|
-| GET `/api/v1/health` | None | 200 `{data:{status:"ok",contract_version:"1.0",mode:"live",capabilities:{semantic_search:true,frame_verification:true,temporal_events:false},supported_event_types:[]}}` |
+| GET `/api/v1/health` | None | 200 `{data:{status:"ok",contract_version:"1.1",mode:"live",capabilities:{semantic_search:true,chat:true,frame_verification:true,temporal_events:false},supported_event_types:[]}}` |
 | POST `/api/v1/videos` | Multipart `file` and `camera_label` | 202 `{data:{video:Video,job:Job}}` |
 | GET `/api/v1/videos?limit=20&offset=0` | limit 1–100; offset >=0 | 200 `{data:{items:Video[],total:number,limit:number,offset:number}}` |
 | GET `/api/v1/videos/{video_id}` | None | 200 `{data:Video}` |
@@ -213,12 +213,45 @@ The 202 response contains a new search ID and job. On job success, GET the searc
     "event_type":null,"zone_id":null,"retrieval_score":0.72,
     "verification":{"status":"supported","basis":"frame_checks","reason":"Supports bag carrying in a sampled frame only; entrance proximity and temporal actions are unverified."},
     "evidence":[{"timestamp_sec":35.0,"image_url":"http://localhost:8000/api/v1/media/frame_01",
-      "quality":"usable","checks":[{"check_id":"person_carrying_bag","question":"Is a person visibly carrying a bag?","answer":"yes","probability_yes":0.86}]}]
+      "quality":"usable","checks":[{"check_id":"person_carrying_bag","question":"Is a person visibly carrying a bag?","answer":"yes","probability_yes":null}]}]
   }]
 }
 ```
 
 The frontend labels this “Frame check supported,” not “Event confirmed.”
+
+### Persistent footage chat (contract 1.1)
+
+Contract 1.1 adds persistent footage chat; existing `/api/v1` routes remain unchanged.
+
+```ts
+type ChatMessage = {
+  message_id: string; role: 'user' | 'assistant'; text: string;
+  created_at: string; search_ids: string[]; result_ids: string[];
+};
+type Chat = {
+  chat_id: string; video_ids: string[]; created_at: string; updated_at: string;
+  status: 'idle' | 'running' | 'failed'; active_turn_id: string | null;
+  context: SearchRequest | null; messages: ChatMessage[]; error: ApiError | null;
+};
+type ChatCreateRequest = { video_ids: string[] };
+type ChatMessageRequest = { message: string };
+type ChatTurnAccepted = { chat_id: string; turn_id: string };
+```
+
+| Method and route | Request | Success response |
+|---|---|---|
+| POST `/api/v1/chats` | `ChatCreateRequest` | 201 `{data:Chat}` |
+| GET `/api/v1/chats/{chat_id}` | None | 200 `{data:Chat}` |
+| POST `/api/v1/chats/{chat_id}/messages` | `ChatMessageRequest` | 202 `{data:ChatTurnAccepted}` |
+
+Chat creation requires 1–20 distinct ready video IDs. Messages contain 1–2000 trimmed characters. Unknown chat IDs return 404 `CHAT_NOT_FOUND`; unavailable Gemini chat returns 503 `MODEL_UNAVAILABLE`. Health adds the required boolean `capabilities.chat` and reports contract version `1.1`.
+
+Chat preserves messages and the most recent validated SearchRequest context across refresh and restart. Follow-ups can reuse recording and time filters. A single bounded chat worker processes persisted internal tasks; each chat permits one active turn. These internal tasks do not extend public JobKind. Conflicting turns return 409 and a full queue returns 429 `QUEUE_FULL` with Retry-After. Interrupted turns terminate with an actionable error after restart. Poll chat detail every two seconds while running, stopping on terminal status or unmount.
+
+Gemini may invoke only backend-authorized `search_video`, `get_search_results` and `finish_response` tools. The backend validates selected video IDs and all search filters before executing tools. Gemini finishes by selecting unique result IDs already read from complete search results through `finish_response`; the backend renders stored summaries, source intervals, verification status, basis and reasons. Assistant messages retain cited search/result IDs. Freeform model text cannot publish a final explanation. Empty-result and processing-failure replies require a corresponding completed empty search or actual tool failure. Missing-input replies use fixed query, recording or time-range prompts. Summaries must distinguish semantic candidates, narrow frame checks and temporal rules; no identity, ownership, intent or event claim exceeds cited source evidence. A no-match answer does not prove an event never happened. Arbitrary client paths or model-proposed tools cannot grant access to other recordings.
+
+All three Google adapters share GEMINI_API_KEY exclusively on the server. The configured defaults are `gemini-embedding-2` and `gemini-3.5-flash`, overridden through `GEMINI_EMBEDDING_MODEL` and `GEMINI_CHAT_MODEL`. Capability requires successful adapter smoke tests; these identifiers do not constitute verified live model access or immutable model revisions. Clip/frame embedding requests send selected footage content to Google; chat requests send conversation and tool-result evidence. Gemini visual verification sends evidence frames to Google and provides allowlisted checks; GEMINI_VERIFICATION_MODEL defaults to `gemini-3.5-flash`. Missing credentials or unavailable Google APIs never fall back to canned answers. Joint frontend integration and real-footage acceptance remain required.
 
 ## 8. Errors, lifecycle and recovery
 
@@ -228,7 +261,7 @@ The frontend labels this “Frame check supported,” not “Event confirmed.”
 
 | HTTP | Codes | Frontend behavior |
 |---|---|---|
-| 404 | `VIDEO_NOT_FOUND`, `JOB_NOT_FOUND`, `SEARCH_NOT_FOUND`, `MEDIA_NOT_FOUND` | Explain missing resource; return to list |
+| 404 | `VIDEO_NOT_FOUND`, `JOB_NOT_FOUND`, `SEARCH_NOT_FOUND`, `MEDIA_NOT_FOUND`, `CHAT_NOT_FOUND` | Explain missing resource; return to list |
 | 409 | `VIDEO_NOT_READY`, `INVALID_STATE`, `JOB_ALREADY_RUNNING` | Refresh resource; do not blindly resubmit |
 | 413 | `FILE_TOO_LARGE` | Show 500 MiB limit |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | Request MP4 |
@@ -253,7 +286,7 @@ The UI remains usable during processing. Polling survives page refresh by reload
 
 ## 10. Integration procedure and change control
 
-1. Both developers agree to this v1.0 contract before coding.
+1. Both developers agree to this v1.1 contract before coding.
 2. Backend publishes Pydantic schemas, `/openapi.json`, and complete fixtures for all states in `contracts/`.
 3. Frontend generates/imports types from OpenAPI and wraps calls in a single API module. Components never hardcode service URLs.
 4. Both use the same fixtures and IDs. Fixtures include working local test media URLs, not only placeholder URLs from this document.
@@ -268,7 +301,7 @@ The UI remains usable during processing. Polling survives page refresh by reload
 - AC03: Query returns playable timestamped candidates; selecting a result seeks to its start and pauses at its end, with an option to continue.
 - AC04: Evidence frames/checks and verification scope are visible; scores never appear as “accuracy %.”
 - AC05: An unrelated query can return zero results; no-match UI differs from a server error.
-- AC06: Poor-frame or unavailable Laya-V verification returns uncertain/not_checked with explanation, never invented certainty.
+- AC06: Poor-frame or unavailable Gemini verification returns uncertain/not_checked with explanation, never invented certainty.
 - AC07: Failed preparation/indexing can retry without duplicate clips/vectors. Restarted worker jobs terminate visibly.
 - AC08: Frontend runs against fixtures and the real API without component rewrites; all response shapes pass schema validation.
 - AC09: Media Range requests enable seeking on a fresh browser session, not only after full download.

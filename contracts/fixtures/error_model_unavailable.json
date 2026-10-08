@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "MODEL_UNAVAILABLE",
+    "message": "Model unavailable",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

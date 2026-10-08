@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "INVALID_ZONE",
+    "message": "Invalid zone",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

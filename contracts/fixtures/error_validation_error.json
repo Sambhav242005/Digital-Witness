@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation error",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

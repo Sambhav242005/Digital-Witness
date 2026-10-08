@@ -1,0 +1,40 @@
+{
+  "data": {
+    "search_id": "search_fixture",
+    "job_id": "job_fixture_search",
+    "status": "succeeded",
+    "query": "person carrying a bag",
+    "video_ids": [
+      "vid_fixture"
+    ],
+    "created_at": "2026-10-08T04:30:00Z",
+    "warnings": [
+      {
+        "code": "VERIFICATION_UNAVAILABLE",
+        "message": "Frame verification is unavailable."
+      }
+    ],
+    "results": [
+      {
+        "start_sec": 0.0,
+        "end_sec": 8.0,
+        "result_id": "result_fixture",
+        "video_id": "vid_fixture",
+        "camera_label": "Fixture Camera",
+        "thumbnail_url": "http://localhost:8000/api/v1/media/media_fixture_thumb",
+        "playback_url": "http://localhost:8000/api/v1/media/media_fixture_video",
+        "summary": "Illustrative candidate fixture; no measured model result.",
+        "event_type": null,
+        "zone_id": null,
+        "retrieval_score": 0.72,
+        "verification": {
+          "status": "not_checked",
+          "reason": "Illustrative frame-check fixture; temporal actions are unverified.",
+          "basis": "none"
+        },
+        "evidence": []
+      }
+    ],
+    "error": null
+  }
+}

@@ -1,0 +1,1 @@
+These examples are illustrative contract fixtures, not measured model outputs. Run the fixture media seeding command documented in README before opening localhost media URLs. The ready fixture refers to vid_fixture; media IDs are media_fixture_video and media_fixture_thumb.

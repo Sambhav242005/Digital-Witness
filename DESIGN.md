@@ -1,6 +1,6 @@
 # Digital Witness — System and Interface Design
 
-Version: 1.0 • Date: 8 October 2026 • Status: implementation blueprint
+Version: 1.1 • Date: 8 October 2026 • Status: implementation blueprint
 
 This document describes the design to build, not an implemented application. [SPEC.md](SPEC.md) owns the exact API and acceptance requirements. [AGENTS.md](AGENTS.md) assigns responsibility to both teammates.
 
@@ -75,7 +75,7 @@ Search validates ready recordings and filters, embeds the query, retrieves candi
 
 Verification uses allowlisted concepts such as bag_present and person_carrying_bag. Check sampled-frame readability before inference. Unsupported concepts return not_checked; poor images yield uncertainty. If verification is unavailable, retain semantic results with warnings. If retrieval is unavailable, return the specified service error.
 
-The existing plan proposes EmbeddingGemma 2 and Laya-V. Validate actual model support, revisions and runtime requirements during implementation; this design makes no measured performance claim. P1 adds a separately tested detector/tracker and geometric temporal rules for person_entered and possible_unattended_bag.
+The existing plan proposes Gemini Embedding 2 and Gemini visual verification. Validate actual model support, revisions and runtime requirements during implementation; this design makes no measured performance claim. P1 adds a separately tested detector/tracker and geometric temporal rules for person_entered and possible_unattended_bag.
 
 ## Persistence and recovery
 
@@ -101,3 +101,9 @@ These are planned directories, not an assertion that code exists. Frontend defau
 Connect fixture screens first, real preparation and media second, and real indexing/search/evidence third. Both teammates review contract changes before implementation. Keep SPEC.md, the original SRS, schemas, generated OpenAPI and fixtures synchronized.
 
 P0 completion requires AC01–AC09 from SPEC.md on real footage with mocks disabled and startup instructions that both teammates can follow. Benchmark consenting/staged footage with expected intervals, unrelated queries and poor-frame cases; report observed recall@5, false positives and latency. P1 is accepted separately against AC10.
+
+## Persistent footage chat — contract 1.1
+
+Gemini chat and Gemini Embedding 2 use the same server-side Google API key. Gemini visual verification uses the same key through GEMINI_VERIFICATION_MODEL (default `gemini-3.5-flash`), and evidence frames go to Google. Persist chats, messages, SearchRequest follow-up context and internal turn tasks. Expose chat creation, detail and asynchronous message endpoints defined in SPEC.md; health advertises actual chat capability. Use bounded execution, one active turn per chat, restart recovery and validated search_video/get_search_results/finish_response tools. Gemini selects actual retrieved result IDs; the backend renders their stored interval, summary and verification reasons rather than publishing freeform model text. Cite stored search/result IDs and preserve evidence limits. Google embedding requests send visual footage content outside the local machine; keep keys and local paths out of the API.
+
+Google model configuration defaults to `gemini-embedding-2` and `gemini-3.5-flash`; override through GEMINI_EMBEDDING_MODEL and GEMINI_CHAT_MODEL. Live model access and acceptance remain unverified until successful API smoke requests and staged-footage evaluation.

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "VIDEO_NOT_FOUND",
+    "message": "Video not found",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

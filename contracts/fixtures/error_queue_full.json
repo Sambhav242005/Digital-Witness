@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "QUEUE_FULL",
+    "message": "Queue full",
+    "details": {}
+  },
+  "request_id": "req_fixture"
+}

@@ -1,0 +1,24 @@
+{
+  "data": {
+    "items": [
+      {
+        "video_id": "vid_fixture",
+        "filename": "fixture.mp4",
+        "camera_label": "Fixture Camera",
+        "status": "draft",
+        "created_at": "2026-10-08T04:30:00Z",
+        "duration_sec": 12.0,
+        "width": 320,
+        "height": 240,
+        "playback_url": "http://localhost:8000/api/v1/media/media_fixture_video",
+        "thumbnail_url": "http://localhost:8000/api/v1/media/media_fixture_thumb",
+        "zones": [],
+        "active_job_id": null,
+        "error": null
+      }
+    ],
+    "total": 1,
+    "limit": 20,
+    "offset": 0
+  }
+}

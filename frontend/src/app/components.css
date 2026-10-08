@@ -1,0 +1,11 @@
+.zone-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.zone-mode-row .helper-text {
+  margin: 0;
+}

@@ -1,0 +1,279 @@
+{
+  "videos": [
+    {
+      "video_id": "vid_demo_entrance",
+      "filename": "north-entrance.mp4",
+      "camera_label": "North entrance",
+      "status": "ready",
+      "created_at": "2026-10-08T04:30:00Z",
+      "duration_sec": 142,
+      "width": 1920,
+      "height": 1080,
+      "playback_url": "http://localhost:8000/api/v1/media/demo_north_entrance",
+      "thumbnail_url": null,
+      "zones": [
+        {
+          "zone_id": "zone_demo_entrance",
+          "name": "Main entrance",
+          "kind": "entrance",
+          "polygon": [
+            { "x": 0.64, "y": 0.24 },
+            { "x": 0.89, "y": 0.24 },
+            { "x": 0.89, "y": 0.87 },
+            { "x": 0.64, "y": 0.87 }
+          ]
+        }
+      ],
+      "active_job_id": null,
+      "error": null
+    },
+    {
+      "video_id": "vid_demo_draft",
+      "filename": "loading-bay.mp4",
+      "camera_label": "Loading bay",
+      "status": "draft",
+      "created_at": "2026-10-07T13:12:00Z",
+      "duration_sec": 142,
+      "width": 1920,
+      "height": 1080,
+      "playback_url": "http://localhost:8000/api/v1/media/demo_loading_bay",
+      "thumbnail_url": null,
+      "zones": [],
+      "active_job_id": null,
+      "error": null
+    },
+    {
+      "video_id": "vid_demo_preparing",
+      "filename": "lobby-camera.mp4",
+      "camera_label": "Lobby camera",
+      "status": "preparing",
+      "created_at": "2026-10-08T04:34:00Z",
+      "duration_sec": null,
+      "width": null,
+      "height": null,
+      "playback_url": null,
+      "thumbnail_url": null,
+      "zones": [],
+      "active_job_id": "job_demo_prepare",
+      "error": null
+    },
+    {
+      "video_id": "vid_demo_indexing",
+      "filename": "warehouse-west.mp4",
+      "camera_label": "Warehouse west",
+      "status": "indexing",
+      "created_at": "2026-10-08T04:36:00Z",
+      "duration_sec": 286,
+      "width": 1920,
+      "height": 1080,
+      "playback_url": "http://localhost:8000/api/v1/media/demo_warehouse_west",
+      "thumbnail_url": null,
+      "zones": [],
+      "active_job_id": "job_demo_index",
+      "error": null
+    },
+    {
+      "video_id": "vid_demo_failed_prepare",
+      "filename": "parking-level-b1.mp4",
+      "camera_label": "Parking level B1",
+      "status": "failed",
+      "created_at": "2026-10-06T19:03:00Z",
+      "duration_sec": null,
+      "width": null,
+      "height": null,
+      "playback_url": null,
+      "thumbnail_url": null,
+      "zones": [],
+      "active_job_id": null,
+      "error": {
+        "code": "MEDIA_DECODE_FAILED",
+        "message": "The uploaded file could not be decoded.",
+        "details": {}
+      }
+    },
+    {
+      "video_id": "vid_demo_failed_index",
+      "filename": "courtyard-east.mp4",
+      "camera_label": "Courtyard east",
+      "status": "failed",
+      "created_at": "2026-10-05T09:15:00Z",
+      "duration_sec": 95,
+      "width": 1920,
+      "height": 1080,
+      "playback_url": "http://localhost:8000/api/v1/media/demo_courtyard_east",
+      "thumbnail_url": null,
+      "zones": [],
+      "active_job_id": null,
+      "error": {
+        "code": "INDEXING_FAILED",
+        "message": "Indexing could not be completed.",
+        "details": {}
+      }
+    }
+  ],
+  "jobs": [
+    {
+      "job_id": "job_demo_prepare",
+      "kind": "prepare_video",
+      "resource_id": "vid_demo_preparing",
+      "status": "queued",
+      "stage": "queued",
+      "progress_pct": 0,
+      "created_at": "2026-10-08T04:34:00Z",
+      "updated_at": "2026-10-08T04:34:00Z",
+      "error": null
+    },
+    {
+      "job_id": "job_demo_index",
+      "kind": "index_video",
+      "resource_id": "vid_demo_indexing",
+      "status": "running",
+      "stage": "embedding",
+      "progress_pct": 48,
+      "created_at": "2026-10-08T04:36:00Z",
+      "updated_at": "2026-10-08T04:36:08Z",
+      "error": null
+    },
+    {
+      "job_id": "job_demo_succeeded",
+      "kind": "index_video",
+      "resource_id": "vid_demo_entrance",
+      "status": "succeeded",
+      "stage": "complete",
+      "progress_pct": 100,
+      "created_at": "2026-10-08T04:20:00Z",
+      "updated_at": "2026-10-08T04:28:00Z",
+      "error": null
+    },
+    {
+      "job_id": "job_demo_failed",
+      "kind": "search",
+      "resource_id": "search_demo_failed",
+      "status": "failed",
+      "stage": "failed",
+      "progress_pct": 65,
+      "created_at": "2026-10-08T04:40:00Z",
+      "updated_at": "2026-10-08T04:42:00Z",
+      "error": {
+        "code": "SEARCH_FAILED",
+        "message": "Search could not be completed.",
+        "details": {}
+      }
+    }
+  ],
+  "searches": [
+    {
+      "search_id": "search_demo_populated",
+      "job_id": "job_demo_succeeded",
+      "status": "succeeded",
+      "query": "person carrying a bag",
+      "video_ids": ["vid_demo_entrance"],
+      "created_at": "2026-10-08T04:30:00Z",
+      "warnings": [],
+      "results": [
+        {
+          "result_id": "result_demo_01",
+          "video_id": "vid_demo_entrance",
+          "camera_label": "North entrance",
+          "start_sec": 32,
+          "end_sec": 40,
+          "thumbnail_url": "http://localhost:8000/api/v1/media/demo_frame_01",
+          "playback_url": "http://localhost:8000/api/v1/media/demo_north_entrance",
+          "summary": "Candidate clip: a person appears to carry a bag. Entrance proximity and temporal actions are unverified.",
+          "event_type": null,
+          "zone_id": null,
+          "retrieval_score": 0.72,
+          "verification": {
+            "status": "supported",
+            "basis": "frame_checks",
+            "reason": "Supports bag carrying in a sampled frame only; entrance proximity and temporal actions are unverified."
+          },
+          "evidence": [
+            {
+              "timestamp_sec": 35,
+              "image_url": "http://localhost:8000/api/v1/media/demo_frame_01",
+              "quality": "usable",
+              "checks": [
+                {
+                  "check_id": "person_carrying_bag",
+                  "question": "Is a person visibly carrying a bag?",
+                  "answer": "yes",
+                  "probability_yes": 0.86
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "error": null
+    },
+    {
+      "search_id": "search_demo_empty",
+      "job_id": "job_demo_succeeded",
+      "status": "succeeded",
+      "query": "nothing matching",
+      "video_ids": ["vid_demo_entrance"],
+      "created_at": "2026-10-08T04:35:00Z",
+      "warnings": [],
+      "results": [],
+      "error": null
+    },
+    {
+      "search_id": "search_demo_degraded",
+      "job_id": "job_demo_succeeded",
+      "status": "succeeded",
+      "query": "degraded verification",
+      "video_ids": ["vid_demo_entrance"],
+      "created_at": "2026-10-08T04:37:00Z",
+      "warnings": [
+        {
+          "code": "VERIFICATION_UNAVAILABLE",
+          "message": "Frame verification is unavailable; semantic candidates are shown without verification."
+        }
+      ],
+      "results": [],
+      "error": null
+    },
+    {
+      "search_id": "search_demo_failed",
+      "job_id": "job_demo_failed",
+      "status": "failed",
+      "query": "failed search",
+      "video_ids": ["vid_demo_entrance"],
+      "created_at": "2026-10-08T04:40:00Z",
+      "warnings": [],
+      "results": [],
+      "error": {
+        "code": "SEARCH_FAILED",
+        "message": "Search could not be completed.",
+        "details": {}
+      }
+    }
+  ],
+  "errors": {
+    "conflict": {
+      "status": 409,
+      "error": {
+        "code": "VIDEO_NOT_READY",
+        "message": "Wait for indexing to finish before searching.",
+        "details": { "video_id": "vid_demo_indexing" }
+      }
+    },
+    "validation": {
+      "status": 422,
+      "error": {
+        "code": "UNSUPPORTED_EVENT_TYPE",
+        "message": "This event type is not supported.",
+        "details": { "event_type": "person_entered" }
+      }
+    },
+    "unavailable": {
+      "status": 503,
+      "error": {
+        "code": "MODEL_UNAVAILABLE",
+        "message": "Semantic search is temporarily unavailable.",
+        "details": {}
+      }
+    }
+  }
+}

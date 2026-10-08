@@ -10,6 +10,12 @@ dependencies = [
   "pillow==12.3.0",
   "google-genai==2.29.0",
   "openai==2.24.0",
+]
+
+[project.optional-dependencies]
+# Only needed when EMBEDDING_PROVIDER=huggingface. Import is lazy in
+# app/ai/huggingface_embedding.py, so the default gemini path needs none of it.
+huggingface = [
   "sentence-transformers==6.1.0",
   "transformers==5.19.0",
   "torch==2.14.0",

@@ -1,0 +1,9 @@
+.venv/
+data/
+backend/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.local
+*.md

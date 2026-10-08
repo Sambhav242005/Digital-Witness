@@ -46,8 +46,14 @@ class HuggingFaceEmbeddingAdapter:
         return f"huggingface@{self.model_id}@{self.revision}|{self.dimension or VECTOR_DIMENSION}|normalized|image-1fps-max640-v1|{'|'.join(versions)}"
 
     def _new_model(self):
-        import torch
-        from sentence_transformers import SentenceTransformer
+        try:
+            import torch
+            from sentence_transformers import SentenceTransformer
+        except ImportError as exc:
+            raise RuntimeError(
+                "EMBEDDING_PROVIDER=huggingface needs the optional 'huggingface' extra. "
+                "Install it with: uv sync --project backend --extra huggingface"
+            ) from exc
 
         dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float32
         return SentenceTransformer(

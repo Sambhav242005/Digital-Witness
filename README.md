@@ -1,6 +1,35 @@
 # Digital Witness
 
-Local CCTV preparation and search service following [SPEC.md](SPEC.md). Backend implementation is available; the frontend is owned by the other teammate and is not yet present.
+Local CCTV preparation and search service following [SPEC.md](SPEC.md). Backend and frontend are both deployed and linked below.
+
+## Live deployment
+
+| | URL |
+|---|---|
+| **Frontend** | https://digital-witness-frontend.onrender.com |
+| **Backend** | https://digital-witness-backend.onrender.com |
+| API documentation | https://digital-witness-backend.onrender.com/docs |
+| Health check | https://digital-witness-backend.onrender.com/api/v1/health |
+
+The deployed backend runs in **live** mode with `mode: "live"` and no canned matches. Capabilities reported by `/api/v1/health`: `semantic_search: true`, `chat: true`, `frame_verification: true`, `temporal_events: false` (temporal rules remain deferred until P1).
+
+Both services are on Render's **free tier**. Expect these limitations:
+
+- **Ephemeral disk.** Uploaded recordings, the vector index and search history are deleted on every redeploy. Anything you upload is temporary.
+- **512 MB RAM.** Short clips work; long or high-resolution uploads plus FFmpeg extraction may run out of memory.
+- **Cold start.** The service sleeps when idle. The first request after idle takes roughly 30–50 seconds to wake.
+- **`RELEVANCE_THRESHOLD=0.5721176865348145`** is a development calibration value, not a production recommendation. Re-tune it on representative footage before trusting ranking.
+- The deployed stack uses the Gemini API key for embeddings, chat and frame verification. Ollama and local Hugging Face weights are not used in deployment.
+
+The frontend is configured with `NEXT_PUBLIC_USE_MOCKS=false` and `NEXT_PUBLIC_API_BASE_URL=https://digital-witness-backend.onrender.com/api/v1`. Both are build-time values, so changing either requires a frontend redeploy.
+
+### How it is deployed
+
+The backend deploys from [backend/Dockerfile](backend/Dockerfile) (uv sync + FFmpeg, `uvicorn app.main:app --port $PORT`). The frontend deploys with `npm run build` and `npm start`. Each service is configured through Render environment variables rather than a checked-in config; secrets stay in Render and in the gitignored `backend/.env`.
+
+Backend Render variables: `CHAT_PROVIDER=gemini`, `EMBEDDING_PROVIDER=gemini`, `LOAD_MODELS=true`, `GEMINI_CHAT_MODEL=gemini-3.5-flash`, `GEMINI_API_KEY`, `PUBLIC_BASE_URL`, `FRONTEND_ORIGIN`, `DATA_DIR=/app/data`, `RELEVANCE_THRESHOLD`, `VERIFICATION_YES_THRESHOLD`, `VERIFICATION_NO_THRESHOLD`.
+
+Frontend Render variables: `NODE_VERSION=22.14.0`, `NEXT_PUBLIC_USE_MOCKS=false`, `NEXT_PUBLIC_API_BASE_URL`. The backend must allow the frontend origin exactly (`FRONTEND_ORIGIN`); it is a single-origin allowlist, not `*`.
 
 ## Start the backend
 
@@ -84,7 +113,7 @@ Gemini chat returned a grounded clip explanation and retained the query on a liv
 
 ## Current integration fixes
 
-The frontend now includes persisted chat and grounded result links. Start it with Node 22.12+ (24 recommended), `cd frontend && npm ci && npm run dev`. Its API URL includes `/api/v1`; default mock mode is false. See frontend/README.md for exact dependency pins and transitive security overrides.
+The frontend now includes persisted chat and grounded result links. For local development start it with Node 22.12+ (24 recommended), `cd frontend && npm ci && npm run dev`. Its API URL includes `/api/v1`; default mock mode is false. To use the deployed backend instead, set `NEXT_PUBLIC_API_BASE_URL=https://digital-witness-backend.onrender.com/api/v1` (see [Live deployment](#live-deployment)). See frontend/README.md for exact dependency pins and transitive security overrides.
 
 Gemini 429/transient errors use `MODEL_UNAVAILABLE` with safe `provider_status` and `retry_after_sec` details. HTTP 503 errors include Retry-After. Adapter health turns false during cooldown and automatically permits recovery; transient startup smoke failures retry after cooldown. No raw Google payloads are returned. Quota/billing limits still require available Google capacity and cannot be solved by retries.
 
